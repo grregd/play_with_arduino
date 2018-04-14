@@ -19,58 +19,110 @@ const uint8_t maskMotorBack[] = {
   0b10000000,
 };
 
+
 static_assert(sizeof(maskMotorFwd) == sizeof(maskMotorBack), 
             "size of maskMotorFwd must be equal to size of maskMotorBack");
 
-void setup() {
+void setup()
+{
   Wire.begin();
   Serial.begin(115200);
 }
 
-void loop() {
- static auto motorNumber = 0;
- static uint8_t currentState = 0;
+class Motors
+{
+private:
+  uint8_t currentState;
 
- if (Serial.available())  {
+public:
+  Motors()
+  : currentState(0)
+  {}
+
+  void fwd(uint8_t motorNumber)
+  {
+    currentState |=  maskMotorFwd[motorNumber];
+    currentState &= ~maskMotorBack[motorNumber];
+  }
+
+  void rev(uint8_t motorNumber)
+  {
+    currentState &= ~maskMotorFwd[motorNumber];
+    currentState |=  maskMotorBack[motorNumber];
+  }
+
+  // soft stop - zero voltage in both directions
+  void stop(uint8_t motorNumber)
+  {
+    currentState &= ~maskMotorFwd[motorNumber];
+    currentState &= ~maskMotorBack[motorNumber];
+  }
+
+  // break - high level in both directions
+  void brake(uint8_t motorNumber)
+  {
+    currentState |= maskMotorFwd[motorNumber];
+    currentState |= maskMotorBack[motorNumber];
+  }
+
+  uint8_t state() const
+  {
+    return currentState;
+  }
+};
+
+void handleFromSerial(Motors & motors, uint8_t motorNumber);
+
+void handleFromSerial(Motors & motors, uint8_t motorNumber)
+{
     auto input = Serial.read();
     Serial.write(input);//send what has been received
     Serial.println();
+
     switch (input)
     {
       // forward
       case 'f':
       case 'F':
-        currentState |=  maskMotorFwd[motorNumber];
-        currentState &= ~maskMotorBack[motorNumber];
+        motors.fwd(motorNumber);
       break;
   
       // reverse
       case 'r':
       case 'R':
-        currentState &= ~maskMotorFwd[motorNumber];
-        currentState |=  maskMotorBack[motorNumber];
+        motors.rev(motorNumber);
       break;
   
       // soft stop - zero voltage in both directions
       case 's':
       case 'S':
-        currentState &= ~maskMotorFwd[motorNumber];
-        currentState &= ~maskMotorBack[motorNumber];
+        motors.stop(motorNumber);
       break;
   
       // break - high level in both directions
       case 'b':
       case 'B':
-        currentState |= maskMotorFwd[motorNumber];
-        currentState |= maskMotorBack[motorNumber];
+        motors.brake(motorNumber);
       break;
     }
     
-    Serial.print("Current state: ");
-    Serial.println(currentState, BIN);
+}
+
+void loop()
+{
+
+  static auto motorNumber = 0;
+  Motors motors;
+
+  if (Serial.available())
+  {
+    handleFromSerial(motors, motorNumber);
     
+    Serial.print("Current state: ");
+    Serial.println(motors.state(), BIN);
+
     Wire.beginTransmission(DRIVER_ADDRESS_TWI);
-    Wire.write(currentState);
+    Wire.write(motors.state());
     Wire.endTransmission();
     
     motorNumber = (motorNumber+1) % 4;
