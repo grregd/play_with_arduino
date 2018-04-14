@@ -1,6 +1,5 @@
 // see: https://starter-kit.nettigo.pl/2011/11/pcf8574-czyli-jak-latwo-zwiekszyc-liczbe-pinow-w-arduino/
 
-#include <PCF8574.h>
 #include <Wire.h>
 
 const auto BASE_ADDRESS_PCF = 0b0100000;
@@ -29,39 +28,13 @@ void setup() {
 }
 
 void loop() {
-
-    static uint8_t state = 0xff;
-
-    Serial.print("state: ");
-    Serial.println(state);
-
-
-    Serial.println("Wire.beginTransmission");
-    Wire.beginTransmission(DRIVER_ADDRESS_TWI);
-    
-    Serial.println("Wire.write");
-    auto written = Wire.write(state);
-    Serial.print("written: ");
-    Serial.println(written);
-    
-    Serial.println("Wire.endTransmission");
-    auto status = Wire.endTransmission(false);
-    Serial.print("status: ");
-    Serial.println(status);
-    
-    state = state ? 0 : 0xff;
-
-    delay(3000);
-  
-return;
-
  static auto motorNumber = 0;
  static uint8_t currentState = 0;
 
  if (Serial.available())  {
     auto input = Serial.read();
     Serial.write(input);//send what has been received
-//    Serial.println();   //print line feed character
+    Serial.println();
     switch (input)
     {
       // forward
@@ -92,6 +65,9 @@ return;
         currentState |= maskMotorBack[motorNumber];
       break;
     }
+    
+    Serial.print("Current state: ");
+    Serial.println(currentState, BIN);
     
     Wire.beginTransmission(DRIVER_ADDRESS_TWI);
     Wire.write(currentState);
